@@ -16,6 +16,8 @@
 
 </div>
 
+![Deployment Success](assets/deployment_success.png)
+
 ---
 
 ## 📖 プロジェクト概要
@@ -93,8 +95,8 @@ Tencent Cloud API 認証情報を取得：
 ### ステップ 1：リポジトリをクローン
 
 ```bash
-git clone https://github.com/yourusername/phishops.git
-cd phishops
+git clone https://github.com/25smoking/PhishOps.git
+cd PhishOps
 ```
 
 ### ステップ 2：認証情報を設定
@@ -298,6 +300,20 @@ phishops/
 ## 🤝 貢献
 
 貢献を歓迎します！Issue や Pull Request をお気軽に送信してください。
+
+1. このプロジェクトに Star を付ける
+2. プロジェクトを Fork する
+3. 機能ブランチを作成 (`git checkout -b feature/AmazingFeature`)
+4. 変更をコミット (`git commit -m 'Add some AmazingFeature'`)
+5. ブランチにプッシュ (`git push origin feature/AmazingFeature`)
+6. Pull Request を開く
+
+---
+
+## 📞 連絡先
+
+- **プロジェクトホーム**: [https://github.com/25smoking/PhishOps](https://github.com/25smoking/PhishOps)
+- **Issue Tracker**: [GitHub Issues](https://github.com/25smoking/PhishOps/issues)
 
 ---
 

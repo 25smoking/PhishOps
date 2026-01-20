@@ -1,4 +1,4 @@
-# PhishOps - 钓鱼行动
+# PhishOps
 
 <div align="center">
 
@@ -15,6 +15,8 @@
 [English](README_EN.md) | [日本語](README_JP.md)
 
 </div>
+
+![Deployment Success](assets/deployment_success.png)
 
 ---
 
@@ -362,7 +364,7 @@ python scripts/destroy.py -p tencent --force
 phishops/
 ├── configs/              # 配置文件
 │   ├── .env.example     # 配置模板
-│   └── .env             # 实际配置（不提交到 Git）
+│   └── .env             # 实际配置
 ├── scripts/              # 自动化脚本
 │   ├── deploy.py        # 部署脚本
 │   ├── destroy.py       # 销毁脚本
@@ -422,18 +424,19 @@ resource "tencentcloud_instance" "gophish" {
 
 欢迎提交 Issue 和 Pull Request！
 
-1. Fork 本项目
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 开启 Pull Request
+1. Star 本项目
+2. Fork 本项目
+3. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
+4. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+5. 推送到分支 (`git push origin feature/AmazingFeature`)
+6. 开启 Pull Request
 
 ---
 
 ## 📞 联系方式
 
-- **Issue Tracker**: [GitHub Issues](https://github.com/yourusername/phishops/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/phishops/discussions)
+- **项目主页**: [https://github.com/25smoking/PhishOps](https://github.com/25smoking/PhishOps)
+- **问题反馈**: [GitHub Issues](https://github.com/25smoking/PhishOps/issues)
 
 ---
 

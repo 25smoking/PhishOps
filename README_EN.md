@@ -16,6 +16,8 @@ Based on [GophishModified](https://github.com/25smoking/GophisModified) Custom E
 
 </div>
 
+![Deployment Success](assets/deployment_success.png)
+
 ---
 
 ## 📖 About
@@ -93,8 +95,8 @@ Obtain Tencent Cloud API credentials:
 ### Step 1: Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/phishops.git
-cd phishops
+git clone https://github.com/25smoking/PhishOps.git
+cd PhishOps
 ```
 
 ### Step 2: Configure Credentials
@@ -276,8 +278,6 @@ phishops/
 
 ---
 
-## ⚠️ Disclaimer
-
 This tool is intended for **authorized security testing and educational purposes only**. Users must:
 
 - ✅ Obtain explicit written authorization from target system owners
@@ -298,6 +298,20 @@ This project is licensed under the [MIT License](LICENSE).
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit Issues and Pull Requests.
+
+1. Star this project
+2. Fork the project
+3. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+4. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+5. Push to the branch (`git push origin feature/AmazingFeature`)
+6. Open a Pull Request
+
+---
+
+## 📞 Contact
+
+- **Project Home**: [https://github.com/25smoking/PhishOps](https://github.com/25smoking/PhishOps)
+- **Issue Tracker**: [GitHub Issues](https://github.com/25smoking/PhishOps/issues)
 
 ---
 
