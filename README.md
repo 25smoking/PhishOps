@@ -426,9 +426,9 @@ resource "tencentcloud_instance" "gophish" {
 
 1. Star 本项目
 2. Fork 本项目
-3. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-4. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-5. 推送到分支 (`git push origin feature/AmazingFeature`)
+3. 创建特性分支 (`git checkout -b feature/new-feature`)
+4. 提交更改 (`git commit -m 'Add new feature'`)
+5. 推送到分支 (`git push origin feature/new-feature`)
 6. 开启 Pull Request
 
 ---

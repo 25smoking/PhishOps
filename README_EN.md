@@ -301,9 +301,9 @@ Contributions are welcome! Please feel free to submit Issues and Pull Requests.
 
 1. Star this project
 2. Fork the project
-3. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-4. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-5. Push to the branch (`git push origin feature/AmazingFeature`)
+3. Create your feature branch (`git checkout -b feature/new-feature`)
+4. Commit your changes (`git commit -m 'Add new feature'`)
+5. Push to the branch (`git push origin feature/new-feature`)
 6. Open a Pull Request
 
 ---

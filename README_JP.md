@@ -303,9 +303,9 @@ phishops/
 
 1. このプロジェクトに Star を付ける
 2. プロジェクトを Fork する
-3. 機能ブランチを作成 (`git checkout -b feature/AmazingFeature`)
-4. 変更をコミット (`git commit -m 'Add some AmazingFeature'`)
-5. ブランチにプッシュ (`git push origin feature/AmazingFeature`)
+3. 機能ブランチを作成 (`git checkout -b feature/new-feature`)
+4. 変更をコミット (`git commit -m 'Add new feature'`)
+5. ブランチにプッシュ (`git push origin feature/new-feature`)
 6. Pull Request を開く
 
 ---
