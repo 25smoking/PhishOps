@@ -96,13 +96,23 @@ HUAWEI_CLOUD_SECRET_KEY=your_actual_secret_key
 
 ### 默认配置
 
-脚本默认使用 `~/.ssh/id_rsa` 作为 SSH 密钥。
+脚本会自动检测以下常见 SSH 密钥：
+
+- `~/.ssh/id_ed25519`
+- `~/.ssh/id_rsa`
+- `~/.ssh/id_ecdsa`
+- `~/.ssh/id_dsa`
+
+如果你在 `.env` 中配置了 `SSH_KEY_PATH`，脚本会优先使用该路径。
 
 ### 生成 SSH 密钥 (如果没有)
 
 ```bash
+ssh-keygen
+# 一路回车即可，macOS / Linux 通常会默认生成 ~/.ssh/id_ed25519
+
+# 如需兼容旧环境，也可以显式生成 RSA
 ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
-# 一路回车即可,默认保存在 ~/.ssh/id_rsa
 ```
 
 ### 使用自定义路径
@@ -153,7 +163,7 @@ INSTANCE_NAME_PREFIX=my-gophish
    - 考虑使用子账号而非主账号
 
 4. **保护 SSH 私钥**
-   - 确保私钥文件权限为 600: `chmod 600 ~/.ssh/id_rsa`
+   - 确保私钥文件权限为 600: `chmod 600 ~/.ssh/id_ed25519`
    - 不要在公共场合泄露私钥
 
 ---
@@ -175,8 +185,8 @@ INSTANCE_NAME_PREFIX=my-gophish
 **原因:** SSH 密钥不存在或路径错误
 
 **解决:**
-1. 生成 SSH 密钥: `ssh-keygen -t rsa`
-2. 确认公钥存在: `ls -la ~/.ssh/id_rsa.pub`
+1. 生成 SSH 密钥: `ssh-keygen`
+2. 确认公钥存在: `ls -la ~/.ssh/id_ed25519.pub` 或 `ls -la ~/.ssh/id_rsa.pub`
 3. 检查 `.env` 中的 `SSH_KEY_PATH` 是否正确
 
 ### Git Clone 失败
@@ -198,7 +208,7 @@ ALIBABA_CLOUD_ACCESS_KEY_ID=LTAI5tAbCdEf123456789
 ALIBABA_CLOUD_ACCESS_KEY_SECRET=your_32_char_secret_key_here
 
 # SSH 密钥 (使用默认路径)
-SSH_KEY_PATH=$HOME/.ssh/id_rsa
+SSH_KEY_PATH=$HOME/.ssh/id_ed25519
 
 # Git 仓库 (使用官方仓库)
 # 不需要修改,使用默认值

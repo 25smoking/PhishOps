@@ -68,11 +68,13 @@ python scripts/destroy.py [选项]
                         云服务商
 
 可选参数:
+  -r, --region         部署地域（未提供时尝试自动推断）
   --no-backup          跳过数据库备份
   --force              强制销毁（不提示确认）
 
 示例:
   python scripts/destroy.py -p alibaba
+  python scripts/destroy.py -p tencent -r ap-hongkong
   python scripts/destroy.py -p tencent --no-backup
   python scripts/destroy.py -p huawei --force
 ```

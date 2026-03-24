@@ -10,9 +10,12 @@ import sys
 import json
 import argparse
 import subprocess
+import re
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
+
+from ssh_utils import resolve_ssh_key_path
 
 # 颜色定义
 class Colors:
@@ -65,7 +68,7 @@ def load_env(config_dir: Path) -> dict:
                     env_vars[key.strip()] = expanded_value
     return env_vars
 
-def setup_credentials(provider: str, env_vars: dict) -> dict:
+def setup_credentials(provider: str, env_vars: dict, region: Optional[str] = None) -> dict:
     """设置云凭证环境变量"""
     tf_vars = {}
     
@@ -88,23 +91,37 @@ def setup_credentials(provider: str, env_vars: dict) -> dict:
             tf_vars['TF_VAR_access_key'] = access_key
             tf_vars['TF_VAR_secret_key'] = secret_key
     
+    if region:
+        tf_vars['TF_VAR_region'] = region
+
     return tf_vars
 
-def find_latest_deployment(auto_root: Path) -> Optional[dict]:
-    """查找最新的部署信息"""
+def find_latest_deployment(auto_root: Path, provider: str) -> Optional[dict]:
+    """查找指定云厂商最新的部署信息"""
     deployment_files = list(auto_root.glob('.deployment-*.json'))
     
     if not deployment_files:
         return None
-    
-    # 按修改时间排序
-    latest_file = max(deployment_files, key=lambda p: p.stat().st_mtime)
-    
-    with open(latest_file, 'r') as f:
-        deployment_info = json.load(f)
-    
-    deployment_info['file'] = latest_file
-    return deployment_info
+
+    matched_deployments = []
+    for deployment_file in deployment_files:
+        try:
+            with open(deployment_file, 'r', encoding='utf-8') as f:
+                deployment_info = json.load(f)
+        except (json.JSONDecodeError, OSError) as exc:
+            log_warn(f"跳过无法读取的部署记录 {deployment_file.name}: {exc}")
+            continue
+
+        if deployment_info.get('provider') != provider:
+            continue
+
+        deployment_info['file'] = deployment_file
+        matched_deployments.append(deployment_info)
+
+    if not matched_deployments:
+        return None
+
+    return max(matched_deployments, key=lambda item: item['file'].stat().st_mtime)
 
 def backup_database(server_ip: str, ssh_user: str, ssh_key: Path, backup_dir: Path):
     """备份数据库"""
@@ -151,6 +168,124 @@ def destroy_infrastructure(terraform_dir: Path, provider: str, tf_vars: dict):
     
     log_info("✓ 云资源已销毁")
 
+def load_terraform_state(provider_dir: Path) -> Optional[dict]:
+    """读取 Terraform 状态文件。"""
+    state_file = provider_dir / 'terraform.tfstate'
+    if not state_file.exists():
+        return None
+
+    try:
+        with open(state_file, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError) as exc:
+        log_warn(f"读取 Terraform 状态文件失败: {exc}")
+        return None
+
+def infer_region_from_zone(provider: str, zone: Optional[str]) -> Optional[str]:
+    """根据可用区推断地域。"""
+    if not zone:
+        return None
+
+    if provider == 'tencent':
+        match = re.match(r'^(.*)-\d+$', zone)
+        return match.group(1) if match else None
+
+    if provider == 'alibaba':
+        match = re.match(r'^(.*)-[a-z]$', zone)
+        return match.group(1) if match else None
+
+    if provider == 'huawei':
+        match = re.match(r'^(.*\d)[a-z]$', zone)
+        return match.group(1) if match else None
+
+    return None
+
+def infer_region_from_state(provider: str, provider_dir: Path) -> Optional[str]:
+    """从 Terraform 状态文件中推断地域。"""
+    state = load_terraform_state(provider_dir)
+    if not state:
+        return None
+
+    resource_type_map = {
+        'tencent': 'tencentcloud_instance',
+        'alibaba': 'alicloud_instance',
+        'huawei': 'huaweicloud_compute_instance',
+    }
+    resource_type = resource_type_map.get(provider)
+    if not resource_type:
+        return None
+
+    for resource in state.get('resources', []):
+        if resource.get('type') != resource_type:
+            continue
+
+        for instance in resource.get('instances', []):
+            attributes = instance.get('attributes', {})
+            zone = (
+                attributes.get('availability_zone')
+                or attributes.get('zone')
+                or attributes.get('availability_zone_name')
+            )
+            region = infer_region_from_zone(provider, zone)
+            if region:
+                return region
+
+    return None
+
+def resolve_destroy_region(provider: str, deployment: Optional[dict],
+                          env_vars: dict, provider_dir: Path,
+                          cli_region: Optional[str] = None) -> Optional[str]:
+    """解析销毁时使用的地域。"""
+    if cli_region:
+        return cli_region
+
+    if deployment and deployment.get('region'):
+        return deployment['region']
+
+    region_env_map = {
+        'alibaba': 'ALIBABA_CLOUD_REGION',
+        'tencent': 'TENCENT_CLOUD_REGION',
+        'huawei': 'HUAWEI_CLOUD_REGION',
+    }
+    env_region_key = region_env_map.get(provider)
+    if env_region_key:
+        env_region = env_vars.get(env_region_key) or os.getenv(env_region_key)
+        if env_region:
+            return env_region
+
+    if provider == 'tencent':
+        zone = env_vars.get('TENCENT_CLOUD_AVAILABILITY_ZONE') or os.getenv('TENCENT_CLOUD_AVAILABILITY_ZONE')
+        region = infer_region_from_zone(provider, zone)
+        if region:
+            return region
+
+    return infer_region_from_state(provider, provider_dir)
+
+def get_backup_ssh_key(deployment: Optional[dict], env_vars: dict) -> Optional[Path]:
+    """获取备份数据库时使用的 SSH 私钥。"""
+    preferred_key_path = None
+
+    if deployment:
+        preferred_key_path = deployment.get('ssh_key_path')
+
+    if not preferred_key_path:
+        preferred_key_path = env_vars.get('SSH_KEY_PATH')
+
+    ssh_key_path = resolve_ssh_key_path(preferred_key_path, log_warn=log_warn)
+    if ssh_key_path:
+        log_info(f"✓ 使用 SSH 密钥: {ssh_key_path}")
+    return ssh_key_path
+
+def get_backup_ssh_user(provider: str, deployment: Optional[dict]) -> str:
+    """获取备份数据库时使用的 SSH 用户。"""
+    if deployment and deployment.get('ssh_user'):
+        return deployment['ssh_user']
+
+    if provider == 'tencent':
+        return 'root'
+
+    return 'root'
+
 def cleanup_deployment_file(deployment_file: Path):
     """清理部署信息文件"""
     try:
@@ -173,6 +308,8 @@ def main():
     parser.add_argument('-p', '--provider', required=True,
                        choices=['alibaba', 'tencent', 'huawei'],
                        help='云服务商')
+    parser.add_argument('-r', '--region',
+                       help='部署地域（未提供时尝试从部署记录或 Terraform 状态推断）')
     parser.add_argument('--no-backup', action='store_true',
                        help='跳过数据库备份')
     parser.add_argument('--force', action='store_true',
@@ -186,27 +323,40 @@ def main():
     terraform_dir = auto_root / 'terraform'
     backup_dir = auto_root / 'backups'
     config_dir = auto_root / 'configs'
+    provider_dir = terraform_dir / args.provider
     
-    # 加载环境变量和设置凭证
+    # 加载环境变量
     env_vars = load_env(config_dir)
-    tf_vars = setup_credentials(args.provider, env_vars)
     
     # 查找最新部署
-    deployment = find_latest_deployment(auto_root)
+    deployment = find_latest_deployment(auto_root, args.provider)
     
     if not deployment:
-        log_warn("未找到部署记录")
-        log_info("将尝试销毁 Terraform 管理的资源...")
+        log_warn(f"未找到云厂商 {args.provider} 的部署记录")
+        log_info("将尝试基于 Terraform 状态推断销毁参数...")
     else:
         log_info(f"找到部署记录: {deployment['name']}")
         log_info(f"  服务器IP: {deployment['ip']}")
         log_info(f"  部署时间: {deployment['time']}")
+
+    destroy_region = resolve_destroy_region(
+        args.provider, deployment, env_vars, provider_dir, args.region
+    )
+    if not destroy_region:
+        log_error("无法确定销毁所需的地域，请使用 -r/--region 手动指定")
+        sys.exit(1)
+
+    log_info(f"销毁地域: {destroy_region}")
+
+    # 设置云凭证
+    tf_vars = setup_credentials(args.provider, env_vars, destroy_region)
     
     # 确认销毁
     if not args.force:
         print()
         print(f"{Colors.YELLOW}⚠️  警告: 即将销毁以下资源:{Colors.NC}")
         print(f"   - 云服务商: {args.provider}")
+        print(f"   - 地域: {destroy_region}")
         if deployment:
             print(f"   - 服务器IP: {deployment['ip']}")
             print(f"   - 实例ID: {deployment.get('id', 'N/A')}")
@@ -219,14 +369,14 @@ def main():
     # 备份数据库
     if not args.no_backup and deployment:
         server_ip = deployment['ip']
-        ssh_user = 'ubuntu' if args.provider == 'tencent' else 'root'
+        ssh_user = get_backup_ssh_user(args.provider, deployment)
         
         # 检查 SSH 密钥
-        ssh_key_path = Path.home() / '.ssh' / 'id_rsa'
-        if ssh_key_path.exists():
+        ssh_key_path = get_backup_ssh_key(deployment, env_vars)
+        if ssh_key_path:
             backup_database(server_ip, ssh_user, ssh_key_path, backup_dir)
         else:
-            log_warn("未找到 SSH 密钥，跳过数据库备份")
+            log_warn("未找到可用的 SSH 密钥，跳过数据库备份")
     
     # 销毁基础设施
     destroy_infrastructure(terraform_dir, args.provider, tf_vars)

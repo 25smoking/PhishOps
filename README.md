@@ -35,8 +35,10 @@
 - **☁️ 腾讯云优化** - 完整测试并优化的腾讯云部署方案（香港、广州等节点）
 - **🔄 GitOps 工作流** - 从 GitHub 仓库持续交付，支持分支切换
 - **🎨 功能增强** - 基于 GophishModified 的二开功能
+- **📮 邮件链路补全** - 支持 EwoMail 云端一键部署，也支持已有服务器独立安装
 - **🔒 安全优先** - 自动防火墙配置、HTTPS 支持、密码自动生成
 - **💾 智能备份** - 资源销毁前自动备份数据库到本地
+- **🧠 运维友好** - 自动检测 SSH 密钥，销毁时可自动推断地域
 - **📊 成本透明** - 实时资源监控和成本估算
 
 ### 🎯 使用场景
@@ -61,7 +63,7 @@
   - `ap-shanghai` - 上海（国内）
 
 > 💡 **实验性支持**  
-> 本项目**已完整测试腾讯云**部署流程。~~阿里云和华为云的配置文件已准备，但尚未经过完整测试，如需使用请自行测试验证。~~
+> 本项目**已完整测试腾讯云 Gophish 部署流程**。阿里云、华为云以及 EwoMail 自动化能力已补齐脚本和 Terraform 模板，如需用于生产环境，建议先在测试环境验证。
 
 
 ### 2. 本地工具安装
@@ -96,8 +98,8 @@
 ### 步骤 1：克隆项目
 
 ```bash
-git clone https://github.com/yourusername/phishops.git
-cd phishops
+git clone https://github.com/25smoking/PhishOps.git
+cd PhishOps
 ```
 
 ### 步骤 2：配置云平台凭证
@@ -120,8 +122,8 @@ TENCENT_CLOUD_SECRET_KEY=your_secret_key
 # 可选：指定可用区（如果遇到资源不足问题）
 # TENCENT_CLOUD_AVAILABILITY_ZONE=ap-hongkong-3
 
-# 可选：自定义 SSH 密钥路径（默认使用 ~/.ssh/id_rsa）
-# SSH_KEY_PATH=$HOME/.ssh/id_rsa
+# 可选：自定义 SSH 密钥路径（默认会自动检测 ~/.ssh/id_ed25519、id_rsa 等）
+# SSH_KEY_PATH=$HOME/.ssh/id_ed25519
 ```
 
 > ⚠️ **Windows 用户注意**  
@@ -181,7 +183,7 @@ python scripts/deploy.py -p tencent -r ap-hongkong -b master
    密码:   a1b2c3d4e5f6
 
 🖥️  SSH 登录:
-   命令: ssh -i ~/.ssh/id_rsa root@1.2.3.4
+   命令: ssh -i <你的私钥路径> root@1.2.3.4
 
 💰 预估成本: ¥0.15/小时 (约 ¥108/月)
 ========================================================
@@ -252,7 +254,7 @@ python scripts/check-resources.py
 
 ```bash
 # 使用自动生成的密钥登录
-ssh -i ~/.ssh/id_rsa root@<服务器IP>
+ssh -i <你的私钥路径> root@<服务器IP>
 
 # 查看 Gophish 日志
 journalctl -u gophish -f
@@ -262,6 +264,35 @@ journalctl -u gophish -f
 
 ```bash
 systemctl restart gophish
+```
+
+### 部署 EwoMail 邮件系统
+
+适合需要为 Gophish 搭配发信环境的场景。脚本会先创建云主机，再自动安装 EwoMail。
+
+```powershell
+python scripts/deploy_ewomail.py -p tencent -r ap-hongkong -d mail.example.com
+```
+
+部署完成后，可访问：
+
+```text
+WebMail:  http://<服务器IP>:8000
+后台管理: http://<服务器IP>:8010
+默认账号: admin
+默认密码: ewomail123
+SMTP 端口: 587
+```
+
+> ⚠️ **注意**  
+> EwoMail 对系统环境要求较高，建议优先在 CentOS 7/8 服务器上测试。
+
+### 在已有服务器上独立安装 EwoMail
+
+如果你的邮件服务器已经创建好，可以直接执行软件安装脚本：
+
+```powershell
+python scripts/install_ewomail_only.py -i <服务器IP> -d mail.example.com
 ```
 
 ### 常见问题排查
@@ -313,6 +344,12 @@ TENCENT_CLOUD_AVAILABILITY_ZONE=ap-hongkong-3
 python scripts/destroy.py -p tencent
 ```
 
+如果部署记录缺少地域信息，建议显式带上地域参数：
+
+```powershell
+python scripts/destroy.py -p tencent -r ap-hongkong
+```
+
 **执行流程：**
 1. 提示确认销毁操作
 2. 自动备份数据库到 `backups/` 目录
@@ -323,6 +360,14 @@ python scripts/destroy.py -p tencent
 
 ```powershell
 python scripts/destroy.py -p tencent --force
+```
+
+### 销毁 EwoMail 云资源
+
+如果你部署的是 EwoMail 专用实例，可使用对应脚本直接回收云资源：
+
+```powershell
+python scripts/destroy_ewomail.py -p tencent
 ```
 
 ### ⚠️ 重要提示
@@ -362,17 +407,26 @@ python scripts/destroy.py -p tencent --force
 
 ```
 phishops/
+├── assets/               # 文档图片资源
 ├── configs/              # 配置文件
-│   ├── .env.example     # 配置模板
-│   └── .env             # 实际配置
+│   ├── .env.example      # 配置模板
+│   └── .env              # 实际配置
 ├── scripts/              # 自动化脚本
-│   ├── deploy.py        # 部署脚本
-│   ├── destroy.py       # 销毁脚本
-│   └── check-resources.py # 资源检查脚本
+│   ├── deploy.py         # Gophish 云部署脚本
+│   ├── destroy.py        # Gophish 云销毁脚本
+│   ├── check-resources.py # 云资源检查脚本
+│   ├── deploy_ewomail.py # EwoMail 云部署脚本
+│   ├── destroy_ewomail.py # EwoMail 云销毁脚本
+│   ├── install_ewomail_only.py # 已有服务器安装 EwoMail
+│   ├── install_ewomail.sh # EwoMail 服务器安装脚本
+│   └── ssh_utils.py      # SSH 密钥解析工具
 ├── terraform/            # Terraform 配置
-│   ├── alibaba/         # 阿里云配置
-│   ├── tencent/         # 腾讯云配置
-│   └── huawei/          # 华为云配置
+│   ├── alibaba/          # 阿里云 Gophish 配置
+│   ├── tencent/          # 腾讯云 Gophish 配置
+│   ├── huawei/           # 华为云 Gophish 配置
+│   ├── ewomail_alibaba/  # 阿里云 EwoMail 配置
+│   ├── ewomail_tencent/  # 腾讯云 EwoMail 配置
+│   └── ewomail_huawei/   # 华为云 EwoMail 配置
 ├── backups/              # 数据库备份目录
 └── README.md             # 本文档
 ```

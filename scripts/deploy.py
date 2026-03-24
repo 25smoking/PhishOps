@@ -15,6 +15,8 @@ from pathlib import Path
 from datetime import datetime
 from typing import Optional, Dict
 
+from ssh_utils import list_ssh_key_candidates, read_public_key, resolve_ssh_key_path
+
 # 颜色定义
 class Colors:
     RED = '\033[0;31m'
@@ -147,24 +149,36 @@ def load_env(config_dir: Path) -> Dict[str, str]:
 
 def check_ssh_key(ssh_key_path: Optional[str] = None) -> tuple[Path, str]:
     """检查 SSH 密钥"""
-    if not ssh_key_path:
-        ssh_key_path = Path.home() / '.ssh' / 'id_rsa'
-    else:
-        ssh_key_path = Path(ssh_key_path)
-    
-    pub_key_path = Path(str(ssh_key_path) + '.pub')
-    
-    if not pub_key_path.exists():
-        log_error(f"未找到 SSH 公钥: {pub_key_path.absolute()}")
-        log_error("请先生成 SSH 密钥: ssh-keygen -t rsa -b 4096")
+    resolved_key_path = resolve_ssh_key_path(ssh_key_path, log_warn=log_warn)
+
+    if not resolved_key_path:
+        if ssh_key_path:
+            configured_pub_key = Path(f"{list_ssh_key_candidates(ssh_key_path)[0]}.pub")
+            log_error(f"配置的 SSH 公钥不可用: {configured_pub_key.absolute()}")
+        else:
+            log_error("未找到可用的 SSH 密钥")
+
         print()
-        print(f"提示: 生成密钥时，连续按3次回车即可（全部使用默认值）")
+        log_info("已检查以下常见路径:")
+        for candidate in list_ssh_key_candidates(ssh_key_path):
+            print(f"  - {candidate}")
+        print()
+        log_error("请先生成 SSH 密钥，或在 configs/.env 中设置正确的 SSH_KEY_PATH")
+        print("推荐命令:")
+        print("  ssh-keygen")
+        print("如需兼容旧环境，也可以使用 RSA:")
+        print("  ssh-keygen -t rsa -b 4096")
+        print()
+        print("提示: 生成密钥时，连续按 3 次回车即可（全部使用默认值）")
         sys.exit(1)
-    
-    with open(pub_key_path, 'r') as f:
-        public_key = f.read().strip()
-    
-    return ssh_key_path, public_key
+
+    public_key = read_public_key(resolved_key_path)
+    if not public_key:
+        log_error(f"SSH 公钥内容为空: {resolved_key_path}.pub")
+        sys.exit(1)
+
+    log_info(f"✓ 使用 SSH 密钥: {resolved_key_path}")
+    return resolved_key_path, public_key
 
 def setup_credentials(provider: str, env_vars: Dict[str, str]) -> Dict[str, str]:
     """设置云凭证环境变量"""
@@ -409,22 +423,26 @@ EOF
         return None
 
 def save_deployment_info(auto_root: Path, deployment_name: str, provider: str,
-                        server_ip: str, instance_id: str, password: Optional[str]):
+                        region: str, server_ip: str, instance_id: str,
+                        ssh_user: str, password: Optional[str], ssh_key_path: Path):
     """保存部署信息"""
     deploy_info = {
         'name': deployment_name,
         'provider': provider,
+        'region': region,
         'ip': server_ip,
         'id': instance_id,
-        'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'ssh_user': ssh_user,
+        'ssh_key_path': str(ssh_key_path)
     }
     
     if password:
         deploy_info['password'] = password
     
     deploy_file = auto_root / f'.deployment-{deployment_name}.json'
-    with open(deploy_file, 'w') as f:
-        json.dump(deploy_info, f, indent=2)
+    with open(deploy_file, 'w', encoding='utf-8') as f:
+        json.dump(deploy_info, f, ensure_ascii=False, indent=2)
 
 def print_success_message(server_ip: str, ssh_user: str, ssh_key: Path, password: Optional[str]):
     """打印部署成功信息"""
@@ -532,7 +550,8 @@ def main():
     
     # 保存部署信息
     save_deployment_info(auto_root, deployment_name, args.provider,
-                        server_ip, instance_id, password)
+                        args.region, server_ip, instance_id,
+                        ssh_user, password, ssh_key)
     
     # 打印成功信息
     print_success_message(server_ip, ssh_user, ssh_key, password)
